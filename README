@@ -1,0 +1,85 @@
+REMOTE CONTROL OF UNIX NETSCAPE
+by Jamie Zawinski, December 1994.
+Comments and suggestions to x_cbug@netscape.com.
+
+When Netscape Navigator is invoked with the -remote argument, it does not open a window, but instead connects to and controls an already-existing process. The argument to the -remote switch is an Xt action to invoke, with optional arguments.
+
+Remote control is implemented using X properties, so the two processes need not be running on the same machine, and need not share a file system.
+
+All of Netscape's action names are the same as its resource names; so, for example, if you wanted to know the name of the action that corresponds to the ``Add Bookmark'' menu item, you could look in Netscape.ad for ``Add Bookmark'' and see that the resource that is set to that string is addBookmark - that's the name of the Action as well.
+
+You can use Actions in Translation tables in the usual Xt-ish way, but you can also invoke them directly via the -remote option, like this: netscape -remote 'addBookmark()'. That command will cause the existing Netscape Navigator process to add its current URL to the bookmarks, just as if you had selected that menu item.
+
+To open a document, you would do netscape -remote 'openURL(http://home.netscape.com)'.
+
+If there is no Netscape 1.1 (or newer) window on the screen, the command will fail.
+
+Multiple -remote options may be given on the same command line. They will be executed sequentially until or unless one fails.
+
+If the command fails, and error message will be reported to stderr and it will exit with a nonzero status.
+SPECIAL ACTIONS
+Invoking any action with no arguments (as above) will have the same effect as selecting the corresponding menu item. However, some actions have slightly different behavior that can be accessed by passing arguments:
+
+      openURL ( )
+          Prompts for a URL with a dialog box. 
+      openURL (URL)
+          Opens the specified document without prompting. 
+      openURL (URL, new-window)
+          Create a new window displaying the the specified document. 
+      openFile ( )
+          Prompts for a file with a dialog box. 
+      openFile (File)
+          Opens the specified file without prompting. 
+      saveAs ( )
+          Prompts for a file with a dialog box (like the menu item). 
+      saveAs (Output-File)
+          Writes HTML to the specified file without prompting. 
+      saveAs (Output-File, Type)
+          Writes to the specified file with the type specified - the type may be HTML, Text, or PostScript. 
+      mailto ( )
+          pops up the mail dialog with the To: field empty. 
+      mailto (a, b, c)
+          Puts the addresses "a, b, c" in the default To: field. 
+      addBookmark ( )
+          Adds the current document to the bookmark list. 
+      addBookmark (URL)
+          Adds the given document to the bookmark list. 
+      addBookmark (URL, Title)
+          Adds the given document to the bookmark list, with the given title. 
+
+All actions not listed here ignore any arguments given them. However, they may be expanded to take arguments in the future. For a full list of available actions, consult the resource file, Netscape.ad.
+
+FURTHER CONTROL
+A few other options exist for finer-grained control of the behavior of the remotely executed commands.
+
+-id window
+    You can select a window to control with the -id command-line option; otherwise, the first Netscape Navigator window found will be used. The argument to this option is an X window id, as a decimal or hexadecimal number. (You can find window IDs with the xwininfo(1) or xlswins(1) programs.) For example:
+
+            netscape -id 0x3c00124 -remote 'openURL(http://home.netscape.com)'
+
+-raise
+-noraise
+    You can control whether the -remote command will cause the Netscape window to automatically raise itself to the top with the -raise and -noraise options. The default is to raise, but this may be disabled as follows:
+
+            netscape -noraise -remote 'openURL(http://home.netscape.com)'
+
+    The -raise and -noraise options apply to all following -remote commands on the command line, and may be interleaved. For example, to add a bookmark without raising the window, and then open a URL and raise the window, one could do
+
+            netscape -noraise -remote 'addBookmark(http://foo)'  \
+                     -raise   -remote 'openURL(http://bar)'
+
+SECURITY CONCERNS
+Any client which can connect to your X server can control a Netscape Navigator process running there; authenticating the originator of the request is beyond the scope of this protocol. It is assumed that the underlying X security mechanisms will prevent unauthorized people from accessing your server.
+
+It is important (in general) that everyone be aware of the security risks associated with allowing unlimited access to your X server. Regardless of whether you use Netscape Navigator, allowing arbitrary users and hosts access to your X server is a gaping security hole. If hostile forces can connect to your server, it is trivially easy for them to execute arbitrary shell commands as you, read and write any of your files, and watch every character you type.
+
+Again, this has nothing to do with Netscape Navigator. It is a property of the X Window System. If you have turned off security on your X server with the xhost + command, or if you have announced that a host is ``trusted'' by using xhost or by listing that host in your /etc/X0.hosts file, then you should be aware of the consequences. If this causes access to be possible from a host which is not, in fact, trusted, then you have left your doors wide open.
+
+For more information about the security mechanisms one can use with an X server, consult the manual pages for X(1), Xsecurity(1), xauth(1), and xhost(1), or talk to your system administrator.
+
+PROTOCOL DETAILS AND SAMPLE IMPLEMENTATION
+For almost all purposes, it should be sufficient for a controlling program to simply fork-and-exec the Netscape program to control another Netscape remotely. Despite the fact that the Netscape executable is large, this should be fast, because the Netscape executable is already swapped in: the fact that the same program is being launched a second time should not have a significant performance impact.
+
+However, if you feel for some reason that invoking an external program isn't acceptable, your application can speak the remote control protocol directly, via X property changes.
+
+We have also provided a reference implementation of this protocol. 
